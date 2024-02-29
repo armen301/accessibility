@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
 
     <queries>
         <intent>
@@ -9,7 +11,7 @@
     </queries>
 
     <application>
-        <service android:name=".AppLaunchAccessibilityService"
+        <service android:name=".AppBlockerAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:enabled="true"
             android:exported="false">

@@ -6,12 +6,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.view.KeyEvent
-import android.view.KeyEvent.KEYCODE_SETTINGS
 import android.view.accessibility.AccessibilityEvent
 import androidx.core.content.ContextCompat
 
-class AppLaunchAccessibilityService : AccessibilityService() {
+class AppBlockerAccessibilityService : AccessibilityService() {
 
     private var blockedApps: MutableList<String> = mutableListOf()
 
@@ -19,8 +17,8 @@ class AppLaunchAccessibilityService : AccessibilityService() {
         override fun onReceive(context: Context?, intent: Intent?) {
             // Handle incoming broadcasts
             intent?.let {
-                if (it.action == "ACTION_FROM_APP") {
-                    blockedApps = (it.getStringArrayExtra("KEY") ?: arrayOf()).toMutableList()
+                if (it.action == ACTION_FROM_APP) {
+                    blockedApps = (it.getStringArrayExtra(EXTRA_KEY) ?: arrayOf()).toMutableList()
                 }
             }
         }
@@ -30,10 +28,6 @@ class AppLaunchAccessibilityService : AccessibilityService() {
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val packageName = event.packageName?.toString()
             if (packageName != null && blockedApps.contains(packageName)) {
-                // App is blocked, take necessary action
-                // For example, show a blocking activity or dialog
-                // Or bring the parent control app to the foreground
-                // Depending on the implementation
                 performBlockingAction(packageName)
             }
         }
@@ -45,39 +39,20 @@ class AppLaunchAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Unregister the BroadcastReceiver
         applicationContext.unregisterReceiver(receiver)
-    }
-
-
-
-    override fun onKeyEvent(event: KeyEvent?): Boolean {
-        when(event?.action) {
-            KEYCODE_SETTINGS -> println("KEYCODE_SETTINGS")
-        }
-        return super.onKeyEvent(event)
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onServiceConnected() {
-        println("onServiceConnected()")
         super.onServiceConnected()
 
-        // Register the BroadcastReceiver
-        val filter = IntentFilter("ACTION_FROM_APP")
-        ContextCompat.registerReceiver(applicationContext, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return super.onStartCommand(intent, flags, startId)
+        val filter = IntentFilter(ACTION_FROM_APP)
+        ContextCompat.registerReceiver(applicationContext, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     private fun performBlockingAction(packageName: String) {
-        // Perform blocking action here, e.g., show a dialog
-        println("Launch is blocked")
-
-        val intent = Intent("ACTION_FROM_ACCESSIBILITY_SERVICE")
-        intent.putExtra("KEY", packageName)
+        val intent = Intent(ACTION_FROM_SERVICE)
+        intent.putExtra(EXTRA_KEY, packageName)
         sendBroadcast(intent)
     }
 }

@@ -12,11 +12,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.LinearLayout
 import androidx.recyclerview.widget.RecyclerView
 import com.parent.accessibility_service.AccessibilityService
 import com.parent.accessibility_service.AppData
-import com.parent.parental_control.R
 import com.parent.parental_control.databinding.ActivityMainBinding
 import com.parent.parental_control.databinding.ItemBinding
 
@@ -54,7 +52,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
 
         service.init(this)
-        val apps = service.getAllApps(this)
+        val apps = service.getAllApps()
 
         findViewById<RecyclerView>(R.id.container).adapter = adapter
         adapter.setData(apps.map { AdapterData(it, false) })
@@ -66,7 +64,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.button).setOnClickListener { _ ->
-            service.blockApps(this, adapter.getData().map { it.appPackage }.toTypedArray())
+            service.blockApps(adapter.getData().map { it.appPackage }.toTypedArray())
         }
     }
 

@@ -19,24 +19,27 @@ import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import java.io.ByteArrayOutputStream
 
+internal const val ACTION_FROM_SERVICE = "ACTION_FROM_SERVICE"
+internal const val ACTION_FROM_APP = "ACTION_FROM_APP"
+internal const val EXTRA_KEY = "EXTRA_KEY"
+
+const val INTENT_BUNDLE_KEY = "INTENT_BUNDLE_KEY"
+
 class AccessibilityService {
 
     private lateinit var activity: Activity
 
     fun init(activity: Activity) {
         this.activity = activity
-        val filter = IntentFilter("ACTION_FROM_ACCESSIBILITY_SERVICE")
-        ContextCompat.registerReceiver(activity.applicationContext, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
+        val filter = IntentFilter(ACTION_FROM_SERVICE)
+        ContextCompat.registerReceiver(activity.applicationContext, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            // Handle incoming broadcasts
             intent?.let {
-                if (it.action == "ACTION_FROM_ACCESSIBILITY_SERVICE") {
-                    val data = it.getStringExtra("KEY")
-                    // Process the received data
-                    bringAppToForeground(data)
+                if (it.action == ACTION_FROM_SERVICE) {
+                    bringAppToForeground(it.getStringExtra(EXTRA_KEY))
                 }
             }
         }
@@ -45,15 +48,12 @@ class AccessibilityService {
     private fun bringAppToForeground(data: String?) {
         val intent = Intent(activity, activity::class.java)
         intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-        ContextCompat.startActivity(activity, intent, bundleOf("key" to data))
+        ContextCompat.startActivity(activity, intent, bundleOf(INTENT_BUNDLE_KEY to data))
     }
 
 
-    fun getAllApps(activity: Activity): List<AppData> {
-        // Create an Intent with the action you are interested in, e.g., ACTION_MAIN for main activities
+    fun getAllApps(): Array<AppData> {
         val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
-
-        // Query all activities that can be performed for the given intent
         val resolveInfoList: List<ResolveInfo> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             activity.packageManager.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
         } else {
@@ -61,7 +61,6 @@ class AccessibilityService {
         }
 
         val appList = mutableListOf<String>()
-        // Extract package names from ResolveInfo
         for (resolveInfo in resolveInfoList) {
             val packageName = resolveInfo.activityInfo.packageName
             if (!appList.contains(packageName)) {
@@ -69,7 +68,7 @@ class AccessibilityService {
             }
         }
 
-        return appList.map { packageName ->
+        return appList.filterNot { it == activity.packageName }.map { packageName ->
             val applicationInfo = activity.appInfo(packageName)
             val appName = activity.packageManager.getApplicationLabel(applicationInfo).toString()
             val appIcon = activity.packageManager.getApplicationIcon(applicationInfo)
@@ -79,12 +78,12 @@ class AccessibilityService {
                 appPackage = packageName,
                 icon = appIcon.toByteArray()
             )
-        }
+        }.toTypedArray()
     }
 
-    fun blockApps(activity: Activity, toBeBlocked: Array<String>) {
-        val intent = Intent("ACTION_FROM_APP").apply {
-            putExtra("KEY", toBeBlocked)
+    fun blockApps(toBeBlocked: Array<String>) {
+        val intent = Intent(ACTION_FROM_APP).apply {
+            putExtra(EXTRA_KEY, toBeBlocked)
         }
         activity.applicationContext.sendBroadcast(intent)
     }
@@ -98,18 +97,13 @@ class AccessibilityService {
     }
 
     private fun Drawable.toByteArray(): ByteArray {
-        // Create a Bitmap with the same dimensions as the drawable
         val bitmap = Bitmap.createBitmap(intrinsicWidth, intrinsicHeight, Bitmap.Config.ARGB_8888)
-
-        // Create a Canvas with the Bitmap
         val canvas = Canvas(bitmap)
 
-        // Draw the Drawable onto the Canvas
         setBounds(0, 0, canvas.width, canvas.height)
         draw(canvas)
 
-        // Convert Bitmap to ByteArray
-        ByteArrayOutputStream().use { stream->
+        ByteArrayOutputStream().use { stream ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
             return stream.toByteArray()
         }
@@ -117,8 +111,9 @@ class AccessibilityService {
 
     fun isAccessibilityServiceEnabled(context: Context): Boolean {
         val accessibilityManager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-        val enabledServices = accessibilityManager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-        val serviceComponentName = ComponentName(context, AppLaunchAccessibilityService::class.java)
+        val enabledServices =
+            accessibilityManager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+        val serviceComponentName = ComponentName(context, AppBlockerAccessibilityService::class.java)
 
         return enabledServices.any {
             it.resolveInfo.serviceInfo.packageName == context.packageName && it.resolveInfo.serviceInfo.name == serviceComponentName.className
