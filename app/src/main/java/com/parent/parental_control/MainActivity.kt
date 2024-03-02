@@ -1,7 +1,6 @@
 package com.parent.parental_control
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import androidx.appcompat.app.AppCompatActivity
@@ -33,14 +32,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-    }
-
-    override fun onRestart() {
-        super.onRestart()
-    }
-
-    override fun onStart() {
-        super.onStart()
+        val z = service.whichAppBlocked()
+        println("armennn -> onNewIntent: $z")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,7 +58,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.button).setOnClickListener { _ ->
-            service.blockApps(adapter.getData().map { it.appPackage }.toTypedArray())
+            service.appsToBeBlocked(adapter.getData().map { it.appPackage }.toTypedArray())
+        }
+
+        findViewById<Button>(R.id.buttonTime).setOnClickListener { _ ->
+            val c = Calendar.getInstance()
+            c.add(Calendar.SECOND, 10)
+            service.blockAfter(c.timeInMillis)
         }
 
         val calendar = Calendar.getInstance()

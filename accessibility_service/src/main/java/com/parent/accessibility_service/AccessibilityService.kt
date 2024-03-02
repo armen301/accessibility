@@ -25,13 +25,17 @@ import java.io.ByteArrayOutputStream
 
 internal const val ACTION_FROM_SERVICE = "ACTION_FROM_SERVICE"
 internal const val ACTION_FROM_APP = "ACTION_FROM_APP"
-internal const val EXTRA_KEY = "EXTRA_KEY"
+internal const val ARRAY_KEY = "ARRAY_KEY"
+internal const val TIME_KEY = "TIME_KEY"
+internal const val SERVICE_DISABLED = "SERVICE_DISABLED"
 
 const val INTENT_BUNDLE_KEY = "INTENT_BUNDLE_KEY"
 
 class AccessibilityService {
 
     private lateinit var activity: Activity
+    private var blockedApp: String? = null
+    private var serviceDisabled = false
 
     fun init(activity: Activity) {
         this.activity = activity
@@ -48,7 +52,15 @@ class AccessibilityService {
         override fun onReceive(context: Context?, intent: Intent?) {
             intent?.let {
                 if (it.action == ACTION_FROM_SERVICE) {
-                    bringAppToForeground(it.getStringExtra(EXTRA_KEY))
+                    val data = it.getStringExtra(ARRAY_KEY) ?: return
+                    if (data == SERVICE_DISABLED) {
+                        serviceDisabled = true
+                        bringAppToForeground(data)
+                        return
+                    }
+
+                    blockedApp = data
+                    bringAppToForeground(data)
                 }
             }
         }
@@ -60,6 +72,17 @@ class AccessibilityService {
         ContextCompat.startActivity(activity, intent, bundleOf(INTENT_BUNDLE_KEY to data))
     }
 
+    fun whichAppBlocked(): String? {
+        val blocked = blockedApp
+        blockedApp = null
+        return blocked
+    }
+
+    fun isServiceDisabled(): Boolean {
+        val disabled = serviceDisabled
+        serviceDisabled = false
+        return disabled
+    }
 
     fun getAllApps(): Array<AppData> {
         val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
@@ -90,9 +113,22 @@ class AccessibilityService {
         }.toTypedArray()
     }
 
-    fun blockApps(toBeBlocked: Array<String>) {
+    /**
+     * @param apps - apps packages to be blocked
+     */
+    fun appsToBeBlocked(apps: Array<String>) {
         val intent = Intent(ACTION_FROM_APP).apply {
-            putExtra(EXTRA_KEY, toBeBlocked)
+            putExtra(ARRAY_KEY, apps)
+        }
+        activity.applicationContext.sendBroadcast(intent)
+    }
+
+    /**
+     * @param time - the time after which need to block an app
+     */
+    fun blockAfter(time: Long) {
+        val intent = Intent(ACTION_FROM_APP).apply {
+            putExtra(TIME_KEY, time)
         }
         activity.applicationContext.sendBroadcast(intent)
     }
