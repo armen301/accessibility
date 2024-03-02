@@ -2,9 +2,13 @@ package com.parent.accessibility_service
 
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
+import android.app.AppOpsManager
+import android.app.usage.UsageStats
+import android.app.usage.UsageStatsManager
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
+import android.content.Context.APP_OPS_SERVICE
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
@@ -32,7 +36,12 @@ class AccessibilityService {
     fun init(activity: Activity) {
         this.activity = activity
         val filter = IntentFilter(ACTION_FROM_SERVICE)
-        ContextCompat.registerReceiver(activity.applicationContext, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(
+            activity.applicationContext,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     private val receiver = object : BroadcastReceiver() {
@@ -118,5 +127,29 @@ class AccessibilityService {
         return enabledServices.any {
             it.resolveInfo.serviceInfo.packageName == context.packageName && it.resolveInfo.serviceInfo.name == serviceComponentName.className
         }
+    }
+
+    fun checkUsageStatsPermission(): Boolean {
+        val appOpsManager = activity.getSystemService(APP_OPS_SERVICE) as AppOpsManager
+        val mode = appOpsManager.unsafeCheckOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            android.os.Process.myUid(),
+            activity.packageName
+        )
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    fun getAppUsageData(beginTime: Long, endTime: Long): Array<UsageStats> {
+        val usageStatsManager = activity.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        return usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST, beginTime, endTime).toTypedArray()
+    }
+
+    fun getAppUsageDataMap(beginTime: Long, endTime: Long): Map<String, Long> {
+        val usageStats = getAppUsageData(beginTime, endTime)
+        val map = mutableMapOf<String, Long>()
+        usageStats.forEach {
+            map[it.packageName] = it.totalTimeInForeground
+        }
+        return map
     }
 }

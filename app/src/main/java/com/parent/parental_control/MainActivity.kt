@@ -17,6 +17,7 @@ import com.parent.accessibility_service.AccessibilityService
 import com.parent.accessibility_service.AppData
 import com.parent.parental_control.databinding.ActivityMainBinding
 import com.parent.parental_control.databinding.ItemBinding
+import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
 
@@ -38,10 +39,6 @@ class MainActivity : AppCompatActivity() {
         super.onRestart()
     }
 
-    override fun onNavigateUp(): Boolean {
-        return super.onNavigateUp()
-    }
-
     override fun onStart() {
         super.onStart()
     }
@@ -59,12 +56,24 @@ class MainActivity : AppCompatActivity() {
 
         if (!service.isAccessibilityServiceEnabled(this)) {
             Handler().postDelayed({
-                navigateToAccessibilitySettings(this)
+                navigateToAccessibilitySettings()
             }, 5000)
+        }
+
+        if (!service.checkUsageStatsPermission()) {
+            requestPackageUsageStatsPermission()
         }
 
         findViewById<Button>(R.id.button).setOnClickListener { _ ->
             service.blockApps(adapter.getData().map { it.appPackage }.toTypedArray())
+        }
+
+        val calendar = Calendar.getInstance()
+        calendar.add(Calendar.DAY_OF_MONTH, -1)
+
+        val list = service.getAppUsageDataMap(calendar.timeInMillis, System.currentTimeMillis())
+        list.forEach { (t, u) ->
+            println("${t}, $u")
         }
     }
 
@@ -72,9 +81,13 @@ class MainActivity : AppCompatActivity() {
         adapter.selected(pack)
     }
 
-    private fun navigateToAccessibilitySettings(context: Context) {
+    private fun navigateToAccessibilitySettings() {
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-        context.startActivity(intent)
+        startActivity(intent)
+    }
+
+    private fun requestPackageUsageStatsPermission() {
+        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
     }
 }
 
