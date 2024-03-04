@@ -19,7 +19,6 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            // Handle incoming broadcasts
             intent?.let {
                 if (it.action == ACTION_FROM_APP) {
                     it.getStringArrayExtra(ARRAY_KEY)?.let { stringArray ->
@@ -58,7 +57,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
 
         val filter = IntentFilter(ACTION_FROM_APP)
-        ContextCompat.registerReceiver(applicationContext, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(applicationContext, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
     }
 
     override fun onDestroy() {
