@@ -3,7 +3,6 @@ package com.parent.parental_control
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.BitmapFactory
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.provider.Settings
@@ -11,8 +10,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
-import com.parent.accessibility_service.AccessibilityService
+import com.parent.accessibility_service.AppBlockerService
 import com.parent.accessibility_service.AppData
 import com.parent.parental_control.databinding.ActivityMainBinding
 import com.parent.parental_control.databinding.ItemBinding
@@ -22,8 +22,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
-    private val service = AccessibilityService()
-
     private val adapter by lazy {
         Adapter { pack, _ ->
             handleClick(pack)
@@ -32,8 +30,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        val z = service.whichAppBlocked()
-        println("armennn -> onNewIntent: $z")
+        val z = AppBlockerService.whichAppBlocked()
+        println("onNewIntent -> onNewIntent: $z")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,36 +39,36 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         binding = ActivityMainBinding.inflate(layoutInflater)
 
-        service.init(this)
-        val apps = service.getAllApps()
+        AppBlockerService.init(this)
+        val apps = AppBlockerService.getAllApps()
 
         findViewById<RecyclerView>(R.id.container).adapter = adapter
         adapter.setData(apps.map { AdapterData(it, false) })
 
-        if (!service.isAccessibilityServiceEnabled(this)) {
+        if (!AppBlockerService.isAccessibilityServiceEnabled()) {
             Handler().postDelayed({
                 navigateToAccessibilitySettings()
             }, 5000)
         }
 
-        if (!service.checkUsageStatsPermission()) {
+        if (!AppBlockerService.checkUsageStatsPermission()) {
             requestPackageUsageStatsPermission()
         }
 
         findViewById<Button>(R.id.button).setOnClickListener { _ ->
-            service.appsToBeBlocked(adapter.getData().map { it.appPackage }.toTypedArray())
+            AppBlockerService.appsToBeBlocked(adapter.getData().map { it.appPackage }.toTypedArray())
         }
 
         findViewById<Button>(R.id.buttonTime).setOnClickListener { _ ->
             val c = Calendar.getInstance()
             c.add(Calendar.SECOND, 10)
-            service.blockAfter(c.timeInMillis)
+            AppBlockerService.blockAfter(c.timeInMillis)
         }
 
         val calendar = Calendar.getInstance()
         calendar.add(Calendar.DAY_OF_MONTH, -1)
 
-        val list = service.getAppUsageDataMap(calendar.timeInMillis, System.currentTimeMillis())
+        val list = AppBlockerService.getAppUsageDataMap(calendar.timeInMillis, System.currentTimeMillis())
         list.forEach { (t, u) ->
             println("${t}, $u")
         }
@@ -111,7 +109,7 @@ private class Adapter(private val listener: (String, Boolean) -> Unit) :
     }
 
     fun getData(): List<AppData> {
-        return data.filter { it.checked}.map { it.app }
+        return data.filter { it.checked }.map { it.app }
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
