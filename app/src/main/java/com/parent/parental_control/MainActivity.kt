@@ -134,6 +134,7 @@ private class Adapter(private val listener: (String, Boolean) -> Unit) :
             val icon = BitmapFactory.decodeByteArray(data.app.icon, 0, data.app.icon.size)
             binding.imageView.setImageBitmap(icon)
             binding.checkbox.isChecked = data.checked
+            binding.category.text = data.app.category
 
             binding.checkbox.setOnCheckedChangeListener { _, isChecked ->
                 listener.invoke(data.app.appPackage, isChecked)

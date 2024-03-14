@@ -4,6 +4,7 @@ data class AppData(
     val appName: String,
     val appPackage: String,
     val icon: ByteArray,
+    val category: String?,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

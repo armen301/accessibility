@@ -9,6 +9,7 @@ import android.app.usage.UsageStatsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Context.APP_OPS_SERVICE
+import android.content.Context.MODE_PRIVATE
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -32,6 +33,8 @@ class AppBlockerService {
 
         private var blockedApp: String? = null
         private var serviceDisabled = false
+
+        @JvmStatic
         fun init(activity: Activity) {
             this.activity = activity
         }
@@ -44,18 +47,21 @@ class AppBlockerService {
             }
         }
 
+        @JvmStatic
         fun whichAppBlocked(): String? {
             val blocked = blockedApp
             blockedApp = null
             return blocked
         }
 
+        @JvmStatic
         fun isServiceDisabled(): Boolean {
             val disabled = serviceDisabled
             serviceDisabled = false
             return disabled
         }
 
+        @JvmStatic
         fun getAllApps(): Array<AppData> {
             val activity = this.activity ?: return emptyArray()
 
@@ -78,11 +84,13 @@ class AppBlockerService {
                 val applicationInfo = activity.appInfo(packageName)
                 val appName = activity.packageManager.getApplicationLabel(applicationInfo).toString()
                 val appIcon = activity.packageManager.getApplicationIcon(applicationInfo)
+                val category = ApplicationInfo.getCategoryTitle(activity, applicationInfo.category)?.toString()
 
                 AppData(
                     appName = appName,
                     appPackage = packageName,
-                    icon = appIcon.toByteArray()
+                    icon = appIcon.toByteArray(),
+                    category = category,
                 )
             }.toTypedArray()
         }
@@ -90,15 +98,19 @@ class AppBlockerService {
         /**
          * @param apps - apps packages to be blocked
          */
+        @JvmStatic
         fun appsToBeBlocked(apps: Array<String>) {
-            BlockedAppsDataHolder.setData(apps)
+            activity?.applicationContext?.getSharedPreferences(PREF_FILE_NAME, MODE_PRIVATE)?.edit()
+                ?.putStringSet(PREF_BLOCKED_APP_KEY, apps.toSet())?.apply()
         }
 
         /**
          * @param time - the time after which need to block an app
          */
+        @JvmStatic
         fun blockAfter(time: Long) {
-            TimestampDataHolder.setData(time)
+            activity?.applicationContext?.getSharedPreferences(PREF_FILE_NAME, MODE_PRIVATE)?.edit()
+                ?.putLong(PREF_BLOCK_AFTER_KEY, time)?.apply()
         }
 
         private fun Activity.appInfo(packageName: String): ApplicationInfo {
@@ -152,6 +164,7 @@ class AppBlockerService {
             return false
         }
 
+        @JvmStatic
         fun getAppUsageData(beginTime: Long, endTime: Long): Array<UsageStats> {
             activity?.let {
                 val usageStatsManager = it.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
@@ -162,6 +175,7 @@ class AppBlockerService {
             return emptyArray()
         }
 
+        @JvmStatic
         fun getAppUsageDataMap(beginTime: Long, endTime: Long): Map<String, Long> {
             val usageStats = getAppUsageData(beginTime, endTime)
             val map = mutableMapOf<String, Long>()
