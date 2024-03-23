@@ -14,13 +14,17 @@ data class AppData(
 
         if (appName != other.appName) return false
         if (appPackage != other.appPackage) return false
-        return icon.contentEquals(other.icon)
+        if (!icon.contentEquals(other.icon)) return false
+        if (category != other.category) return false
+
+        return true
     }
 
     override fun hashCode(): Int {
         var result = appName.hashCode()
         result = 31 * result + appPackage.hashCode()
         result = 31 * result + icon.contentHashCode()
+        result = 31 * result + (category?.hashCode() ?: 0)
         return result
     }
 }

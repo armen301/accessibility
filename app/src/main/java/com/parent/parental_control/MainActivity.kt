@@ -28,12 +28,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        val z = AppBlockerService.whichAppBlocked()
-        println("onNewIntent -> onNewIntent: $z")
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -68,9 +62,9 @@ class MainActivity : AppCompatActivity() {
         val calendar = Calendar.getInstance()
         calendar.add(Calendar.DAY_OF_MONTH, -1)
 
-        val list = AppBlockerService.getAppUsageDataMap(calendar.timeInMillis, System.currentTimeMillis())
-        list.forEach { (t, u) ->
-            println("${t}, $u")
+        val list = AppBlockerService.getAppUsageStatsWithData(calendar.timeInMillis, System.currentTimeMillis())
+        list.forEach {
+            println("getAppUsageStatsWithData ${it.appData.appPackage}, ${it.usageStats?.totalTimeVisible}")
         }
     }
 

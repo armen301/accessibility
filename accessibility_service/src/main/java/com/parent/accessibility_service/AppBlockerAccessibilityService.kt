@@ -10,6 +10,8 @@ import android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
 
 const val PREF_BLOCKED_APP_KEY = "PREF_BLOCKED_APP_KEY"
 const val PREF_BLOCK_AFTER_KEY = "PREF_BLOCK_AFTER_KEY"
+const val PREF_WORK_FROM_KEY = "PREF_WORK_FROM_KEY"
+const val PREF_WORK_TO_KEY = "PREF_WORK_TO_KEY"
 const val PREF_FILE_NAME = "PREF_FILE_NAME"
 
 class AppBlockerAccessibilityService : AccessibilityService() {
@@ -18,6 +20,9 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
+
+        if (!isWorkingTime()) return
+
         val blockAfter = pref.getLong(PREF_BLOCK_AFTER_KEY, 0)
         if (blockAfter == 0L) return
         val blockedApps = pref.getStringSet(PREF_BLOCKED_APP_KEY, null) ?: return
@@ -35,6 +40,11 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
             else -> Unit
         }
+    }
+
+    private fun isWorkingTime(): Boolean {
+        val now = System.currentTimeMillis()
+        return pref.getLong(PREF_WORK_FROM_KEY, 0) <= now && now <= pref.getLong(PREF_WORK_TO_KEY, 0)
     }
 
     override fun onServiceConnected() {

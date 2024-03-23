@@ -113,6 +113,14 @@ class AppBlockerService {
                 ?.putLong(PREF_BLOCK_AFTER_KEY, time)?.apply()
         }
 
+        @JvmStatic
+        fun workingTime(from: Long, to: Long) {
+            activity?.applicationContext?.getSharedPreferences(PREF_FILE_NAME, MODE_PRIVATE)?.edit()?.let {
+                it.putLong(PREF_WORK_TO_KEY, to).apply()
+                it.putLong(PREF_WORK_FROM_KEY, from).apply()
+            }
+        }
+
         private fun Activity.appInfo(packageName: String): ApplicationInfo {
             return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 packageManager.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0))
@@ -176,13 +184,20 @@ class AppBlockerService {
         }
 
         @JvmStatic
-        fun getAppUsageDataMap(beginTime: Long, endTime: Long): Map<String, Long> {
+        fun appData(packageName: String): AppData? {
+            return getAllApps().find { it.appPackage == packageName }
+        }
+
+        @JvmStatic
+        fun getAppUsageStatsWithData(beginTime: Long, endTime: Long): Array<AppUsageData> {
+            val apps = getAllApps()
             val usageStats = getAppUsageData(beginTime, endTime)
-            val map = mutableMapOf<String, Long>()
-            usageStats.forEach {
-                map[it.packageName] = it.totalTimeInForeground
-            }
-            return map
+
+            return usageStats.map { usage ->
+                apps.find { it.appPackage == usage.packageName }?.let {
+                    return@map AppUsageData(usage, it)
+                }
+            }.mapNotNull { it }.toTypedArray()
         }
 
         fun onInterrupt() {
