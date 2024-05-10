@@ -56,7 +56,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.buttonTime).setOnClickListener { _ ->
             val c = Calendar.getInstance()
             c.add(Calendar.SECOND, 10)
-            AppBlockerService.blockAfter(c.timeInMillis)
+            val from = c.timeInMillis
+            c.add(Calendar.MINUTE, 5)
+            val to = c.timeInMillis
+            AppBlockerService.workingTime(from, to)
         }
 
         val calendar = Calendar.getInstance()
@@ -64,7 +67,7 @@ class MainActivity : AppCompatActivity() {
 
         val list = AppBlockerService.getAppUsageStatsWithData(calendar.timeInMillis, System.currentTimeMillis())
         list.forEach {
-            println("getAppUsageStatsWithData ${it.appData.appPackage}, ${it.usageStats?.totalTimeVisible}")
+            println("getAppUsageStatsWithData ${it.appData.appPackage}, ${it.usageStats.totalTimeVisible}")
         }
     }
 

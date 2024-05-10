@@ -21,7 +21,12 @@ import android.os.Build
 import android.view.accessibility.AccessibilityManager
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
+import androidx.work.Data
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import java.io.ByteArrayOutputStream
+import java.util.Calendar
+import java.util.concurrent.TimeUnit
 
 class AppBlockerService {
     companion object {
@@ -66,11 +71,18 @@ class AppBlockerService {
             val activity = this.activity ?: return emptyArray()
 
             val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
-            val resolveInfoList: List<ResolveInfo> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                activity.packageManager.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
-            } else {
-                activity.packageManager.queryIntentActivities(intent, PackageManager.GET_META_DATA)
-            }
+            val resolveInfoList: List<ResolveInfo> =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    activity.packageManager.queryIntentActivities(
+                        intent,
+                        PackageManager.ResolveInfoFlags.of(0)
+                    )
+                } else {
+                    activity.packageManager.queryIntentActivities(
+                        intent,
+                        PackageManager.GET_META_DATA
+                    )
+                }
 
             val appList = mutableListOf<String>()
             for (resolveInfo in resolveInfoList) {
@@ -82,9 +94,11 @@ class AppBlockerService {
 
             return appList.filterNot { it == activity.packageName }.map { packageName ->
                 val applicationInfo = activity.appInfo(packageName)
-                val appName = activity.packageManager.getApplicationLabel(applicationInfo).toString()
+                val appName =
+                    activity.packageManager.getApplicationLabel(applicationInfo).toString()
                 val appIcon = activity.packageManager.getApplicationIcon(applicationInfo)
-                val category = ApplicationInfo.getCategoryTitle(activity, applicationInfo.category)?.toString()
+                val category =
+                    ApplicationInfo.getCategoryTitle(activity, applicationInfo.category)?.toString()
 
                 AppData(
                     appName = appName,
@@ -104,33 +118,60 @@ class AppBlockerService {
                 ?.putStringSet(PREF_BLOCKED_APP_KEY, apps.toSet())?.apply()
         }
 
-        /**
-         * @param time - the time after which need to block an app
-         */
         @JvmStatic
-        fun blockAfter(time: Long) {
+        fun workingTime(from: Long, to: Long) {
             activity?.applicationContext?.getSharedPreferences(PREF_FILE_NAME, MODE_PRIVATE)?.edit()
-                ?.putLong(PREF_BLOCK_AFTER_KEY, time)?.apply()
+                ?.let {
+                    it.putLong(PREF_WORK_TO_KEY, to).apply()
+                    it.putLong(PREF_WORK_FROM_KEY, from).apply()
+                }
+            activity?.applicationContext?.let {
+                startDailyWorker(it, from, to)
+            }
+        }
+
+        private fun startDailyWorker(context: Context, from: Long, to: Long) {
+            val inputData = Data.Builder()
+                .putLong(PREF_WORK_TO_KEY, to)
+                .putLong(PREF_WORK_FROM_KEY, from)
+                .build()
+
+            val dailyWorkRequest = OneTimeWorkRequestBuilder<DailyWorker>()
+                .setInitialDelay(calculateDelay(), TimeUnit.MILLISECONDS)
+                .setInputData(inputData)
+                .build()
+            WorkManager.getInstance(context).enqueue(dailyWorkRequest)
         }
 
         @JvmStatic
-        fun workingTime(from: Long, to: Long) {
-            activity?.applicationContext?.getSharedPreferences(PREF_FILE_NAME, MODE_PRIVATE)?.edit()?.let {
-                it.putLong(PREF_WORK_TO_KEY, to).apply()
-                it.putLong(PREF_WORK_FROM_KEY, from).apply()
+        fun calculateDelay(): Long {
+            val currentDate = Calendar.getInstance()
+            val dueDate = Calendar.getInstance()
+
+            // Set Execution around 11:50:00 PM
+            dueDate.set(Calendar.HOUR_OF_DAY, 23)
+            dueDate.set(Calendar.MINUTE, 50)
+            dueDate.set(Calendar.SECOND, 0)
+            if (dueDate.before(currentDate)) {
+                dueDate.add(Calendar.HOUR_OF_DAY, 24)
             }
+            return dueDate.timeInMillis - currentDate.timeInMillis
         }
 
         private fun Activity.appInfo(packageName: String): ApplicationInfo {
             return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0))
+                packageManager.getApplicationInfo(
+                    packageName,
+                    PackageManager.ApplicationInfoFlags.of(0)
+                )
             } else {
                 packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
             }
         }
 
         private fun Drawable.toByteArray(): ByteArray {
-            val bitmap = Bitmap.createBitmap(intrinsicWidth, intrinsicHeight, Bitmap.Config.ARGB_8888)
+            val bitmap =
+                Bitmap.createBitmap(intrinsicWidth, intrinsicHeight, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
 
             setBounds(0, 0, canvas.width, canvas.height)
@@ -149,7 +190,8 @@ class AppBlockerService {
                     activity.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
                 val enabledServices =
                     accessibilityManager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-                val serviceComponentName = ComponentName(activity, AppBlockerAccessibilityService::class.java)
+                val serviceComponentName =
+                    ComponentName(activity, AppBlockerAccessibilityService::class.java)
 
                 return enabledServices.any {
                     it.resolveInfo.serviceInfo.packageName == activity.packageName && it.resolveInfo.serviceInfo.name == serviceComponentName.className
@@ -175,8 +217,13 @@ class AppBlockerService {
         @JvmStatic
         fun getAppUsageData(beginTime: Long, endTime: Long): Array<UsageStats> {
             activity?.let {
-                val usageStatsManager = it.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-                return usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST, beginTime, endTime)
+                val usageStatsManager =
+                    it.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                return usageStatsManager.queryUsageStats(
+                    UsageStatsManager.INTERVAL_BEST,
+                    beginTime,
+                    endTime
+                )
                     .toTypedArray()
             }
 
@@ -216,5 +263,4 @@ class AppBlockerService {
             bringAppToForeground(packageName)
         }
     }
-
 }
